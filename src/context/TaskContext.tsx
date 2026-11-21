@@ -110,12 +110,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     setTasksById((prev) => {
       const existing = prev[taskId]
       if (!existing) return prev
-      if (existing.status === destinationStatus) {
-        return {
-          ...prev,
-          [taskId]: { ...existing, status: destinationStatus, updatedAt: Date.now() },
-        }
-      }
       return {
         ...prev,
         [taskId]: { ...existing, status: destinationStatus, updatedAt: Date.now() },
@@ -124,13 +118,21 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
     setColumnOrder((prev) => {
       const statuses = Object.keys(prev) as Status[]
-      const sourceStatus = statuses.find((s) => prev[s].includes(taskId)) ?? tasksById[taskId]?.status ?? 'todo'
+      const sourceStatus = statuses.find((s) => prev[s].includes(taskId))
+
+      if (!sourceStatus) return prev
 
       const sourceList = prev[sourceStatus].filter((id) => id !== taskId)
       const destListRaw = prev[destinationStatus].filter((id) => id !== taskId)
-
       const insertIndex = Math.max(0, Math.min(destinationIndex, destListRaw.length))
       const nextDest = [...destListRaw.slice(0, insertIndex), taskId, ...destListRaw.slice(insertIndex)]
+
+      if (sourceStatus === destinationStatus) {
+        return {
+          ...prev,
+          [sourceStatus]: nextDest,
+        }
+      }
 
       return {
         ...prev,
@@ -138,7 +140,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         [destinationStatus]: nextDest,
       }
     })
-  }, [tasksById])
+  }, [])
 
   const moveTaskByStatus = useCallback(
     (taskId: string, newStatus: Status) => {
@@ -149,11 +151,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
         const destListRaw = prev[newStatus].filter((id) => id !== taskId)
         const sourceList = prev[sourceStatus].filter((id) => id !== taskId)
+        const nextDest = [...destListRaw, taskId]
+
+        if (sourceStatus === newStatus) {
+          return {
+            ...prev,
+            [sourceStatus]: nextDest,
+          }
+        }
 
         return {
           ...prev,
           [sourceStatus]: sourceList,
-          [newStatus]: [...destListRaw, taskId],
+          [newStatus]: nextDest,
         }
       })
       setTasksById((prev) => {

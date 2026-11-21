@@ -7,6 +7,7 @@ export type BoardStateV1 = {
 }
 
 const STORAGE_KEY = 'kanbanTasksV1'
+const STATUSES: Status[] = ['todo', 'inProgress', 'done']
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -24,6 +25,49 @@ export function defaultBoardState(): BoardStateV1 {
   }
 }
 
+export function normalizeBoardState(state: Partial<BoardStateV1> | unknown): BoardStateV1 {
+  const fallback = defaultBoardState()
+  if (!isObject(state)) return fallback
+
+  const tasksById = isObject(state.tasksById) ? (state.tasksById as Record<string, Task>) : {}
+  const rawColumnOrder = isObject(state.columnOrder) ? (state.columnOrder as Partial<Record<Status, string[]>>) : {}
+
+  const columnOrder = { ...fallback.columnOrder } as Record<Status, string[]>
+  for (const status of STATUSES) {
+    const values = rawColumnOrder[status]
+    columnOrder[status] = Array.isArray(values)
+      ? values.filter((id): id is string => typeof id === 'string')
+      : []
+  }
+
+  const seenIds = new Set<string>()
+  for (const status of STATUSES) {
+    columnOrder[status] = columnOrder[status].filter((id) => {
+      if (!tasksById[id] || seenIds.has(id)) return false
+      seenIds.add(id)
+      return true
+    })
+  }
+
+  for (const [id, task] of Object.entries(tasksById)) {
+    if (!task || !isObject(task)) continue
+
+    const taskStatus = task.status
+    const safeStatus: Status = STATUSES.includes(taskStatus as Status) ? (taskStatus as Status) : 'todo'
+
+    if (!seenIds.has(id)) {
+      columnOrder[safeStatus].push(id)
+      seenIds.add(id)
+    }
+  }
+
+  return {
+    version: 1,
+    tasksById,
+    columnOrder,
+  }
+}
+
 export function loadBoardState(): BoardStateV1 {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -31,18 +75,9 @@ export function loadBoardState(): BoardStateV1 {
 
     const parsed = JSON.parse(raw) as unknown
     if (!isObject(parsed)) return defaultBoardState()
-
     if (parsed.version !== 1) return defaultBoardState()
 
-    // Basic shape checks; keep it permissive to avoid wiping user data on minor schema changes.
-    const tasksById = (parsed as BoardStateV1).tasksById ?? {}
-    const columnOrder = (parsed as BoardStateV1).columnOrder ?? defaultBoardState().columnOrder
-
-    return {
-      version: 1,
-      tasksById,
-      columnOrder,
-    }
+    return normalizeBoardState(parsed as Partial<BoardStateV1>)
   } catch {
     return defaultBoardState()
   }
