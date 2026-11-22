@@ -103,7 +103,9 @@ pipeline {
                     // You can call a separate rollback function or stage here
                     // For example, trigger another job, or run commands to revert to a previous version
                     // sh 'python rollback_script.py'
-                    currentBuild.result = 'FAILURE'
+                   script{
+                       currentBuild.result = 'FAILURE'
+                   }
                 }
                 unstable {
                     echo 'Pipeline finished with some issues (unstable).' // e.g., if tests failed but build passed
