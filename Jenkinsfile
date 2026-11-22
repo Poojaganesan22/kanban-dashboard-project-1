@@ -1,6 +1,6 @@
 pipeline {
     agent any
-}
+ }
    stages {
     stage('checkout') {
         steps {
@@ -9,7 +9,7 @@ pipeline {
         }
     }
 
-}
+ }
    stage('Docker build and tag') {
     steps {
         script {
@@ -25,7 +25,7 @@ pipeline {
             """
         }
     }
-}
+ }
     stage('Registry login + push') {
     steps {
         withCredentials([usernamePassword(
@@ -42,7 +42,7 @@ pipeline {
             '''
         }
     }
-}
+ }
 stage('Deploy to EC2') {
     steps {
         sshagent(credentials: ['ec2-ssh-key']) {
@@ -56,7 +56,7 @@ stage('Deploy to EC2') {
             '''
         }
     }
-}
+ }
 stage('Health check new container') {
     steps {
         sh '''
@@ -72,12 +72,12 @@ stage('Health check new container') {
                exit 1'
         '''
     }
-}
+ }
 stage('Mark success') {
     steps {
         echo 'Deploy and health check succeeded'
     }
-}
+ }
 
 post {
     failure {
