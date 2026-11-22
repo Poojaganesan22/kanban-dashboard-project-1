@@ -29,9 +29,9 @@ pipeline {
     stage('Registry login + push') {
     steps {
         withCredentials([usernamePassword(
-            credentialsId: 'registry-credentials',
-            usernameVariable: 'REGISTRY_USER',
-            passwordVariable: 'REGISTRY_PASSWORD'
+            credentialsId: 'dockerhub-creds',
+            usernameVariable: 'poojapooja123',
+            passwordVariable: 'ganesanganesan123'
         )]) {
             sh '''
                 echo "$REGISTRY_PASSWORD" |
