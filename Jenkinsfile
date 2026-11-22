@@ -1,3 +1,66 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
+    }
+
+    environment {
+        IMAGE_NAME = 'poojapooja123/kanban-dashboard'
+        EC2_HOST = '13.234.21.10'
+        APP_PORT = '3000'
+        HEALTH_PATH = '/'
+        CONTAINER_NAME = 'kanban-dashboard-app'
+        DEPLOY_ATTEMPTED = 'false'
+    }
+
+    stages {
+        stage('Checkout source') {
+            steps {
+                checkout scm
+                script {
+                    env.GIT_SHA = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_SHA}"
+                    env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+            }
+        }
+        stage('Docker build + tag') {
+            steps {
+                sh '''
+                    set -eu
+                    docker build \\
+                      -t "$FULL_IMAGE" \\
+                      -t "$IMAGE_NAME:$BUILD_NUMBER" .
+                '''
+            }
+        }
+
+        stage('Registry login + push') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USERNAME',
+                    passwordVariable: 'DOCKER_TOKEN'
+                )]) {
+                    sh '''
+                        set +x
+                        printf '%s' "$DOCKER_TOKEN" |
+                          docker login --username "$DOCKER_USERNAME" --password-stdin
+                        docker push "$FULL_IMAGE"
+                        docker push "$IMAGE_NAME:$BUILD_NUMBER"
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
                 script {
                     writeFile file: 'remote-deploy.sh', text: '''#!/bin/sh
 set -eu
@@ -122,4 +185,3 @@ def runRemote(String operation) {
         """
     }
 }
-
